@@ -1,4 +1,6 @@
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -15,11 +17,31 @@ public class Server {
 	Socket client = listener.accept();
 	System.out.println("Connected");
 	
+	
 	PrintWriter outbound = new PrintWriter(client.getOutputStream(), true);
-	outbound.println(new Date().toString());
-	System.out.println("Sent");
-	client.close();
+	BufferedReader inbound = new BufferedReader(new InputStreamReader(client.getInputStream()));
+	try {
+		while (true) {
+			String request = inbound.readLine();
+			if(request.contains("hello")) {
+			outbound.println(testMethod());
+			}
+			else {
+			outbound.println("wat"); //fill me in later
+			}
+		}
+	}
+	finally {
 	listener.close();
+	outbound.close();
+	inbound.close();
 	}
 	
+}//end main
+	
+	public static String testMethod() {
+		String tester = "Hello friend";
+		return tester;
+		}
 }
+	

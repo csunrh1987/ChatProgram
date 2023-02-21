@@ -1,40 +1,31 @@
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.Date;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class Server {
 	private static final int PORT = 9090;
+	private static ArrayList<ClientHandler> clients = new ArrayList<>();
+	private static ExecutorService pool = Executors.newFixedThreadPool(4);
+	
 	
 	public static void main(String[] args) throws IOException {
-	//port listening on
-	ServerSocket listener = new ServerSocket(PORT);
+	ServerSocket listener = new ServerSocket(PORT); //server socket
 	
-	System.out.println("Server running...");
-	Socket client = listener.accept();
+	while(true) {
+	System.out.println("Server running..."); //waiting for client to connect
+	Socket client = listener.accept(); 
 	System.out.println("Connected");
+	ClientHandler clientThread = new ClientHandler(client);
+	clients.add(clientThread);
 	
+	pool.execute(clientThread);
 	
-	PrintWriter outbound = new PrintWriter(client.getOutputStream(), true);
-	BufferedReader inbound = new BufferedReader(new InputStreamReader(client.getInputStream()));
-	try {
-		while (true) {
-			String request = inbound.readLine();
-			if(request.contains("hello")) {
-			outbound.println(testMethod());
-			}
-			else {
-			outbound.println("wat"); //fill me in later
-			}
-		}
-	}
-	finally {
-	listener.close();
-	outbound.close();
-	inbound.close();
 	}
 	
 }//end main

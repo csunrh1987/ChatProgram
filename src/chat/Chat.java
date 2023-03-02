@@ -1,11 +1,16 @@
 package chat;
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.InetAddress;
+import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Scanner;
+
 
 public class Chat {
 	 public static void main(String[] arg){
@@ -93,9 +98,110 @@ public class Chat {
                     default -> System.out.println("Invalid user command");
                 }
             }
-            
-    	}
+    }
+
+private class Clients implements Runnable{
+
+	private BufferedReader input = null;
+	private Socket clientSocket = null;
+	private boolean checkStop = false;
+	//client class constructed with input from reader and IP
+	private Clients(BufferedReader input,Socket ipAddress) {
+	    this.input = input;
+	    this.clientSocket = ipAddress;
+	}
+	
+	@Override
+	public void run() {
+		while(!clientSocket.isClosed() && !this.checkStop)
+	    {
+			String st;
+	        try {
+	        	st = input.readLine(); //read input from terminal...
+	        	if(st == null){
+					stop();	//if there is no input, then stop
+					System.out.println("Connection was terminated by: " +clientSocket.getInetAddress().getHostAddress() +":"+clientSocket.getPort()+". ");
+					return;
+							 }
+	
+	        	System.out.println("Message from " +clientSocket.getInetAddress().getHostAddress() +":"+clientSocket.getPort()+" : "+st);
+	        	} 
+	        catch (IOException e) {
+	        	e.printStackTrace();
+	        	}
+	    }
+	}
+	//stopping a client instance
+	public void stop(){
+	
+	    if(input != null)
+	        try {
+	            input.close();
+	        } catch (IOException e) {
+	        }
+	
+	    if(clientSocket != null)
+	        try {
+	            clientSocket.close();
+	        } catch (IOException e) {
+	        }
+	    checkStop = true;
+	    Thread.currentThread().interrupt();
+	}
+
 }
+
+
+            
+            
+private class Server implements Runnable{
+
+	BufferedReader in = null;
+	Socket socket = null;
+	boolean isStopped ; //boolean to check if the server is stopped
+	List<Clients> clientList = new ArrayList<Clients>(); //list of Clients in an array
+
+
+@Override
+	public void run() {
+    ServerSocket s;
+	    try {
+	    	s = new ServerSocket(getmyPort()); //make new socket with given port
+	    	System.out.println("Server Waiting For The Client");
+	    	
+	    	while(!isStopped) { //while the server is running...
+	    	try { //try to connect to the server..
+	    		socket = s.accept();
+	    		in = new BufferedReader(new
+	            InputStreamReader(socket.getInputStream()));
+	    		System.out.println(socket.getInetAddress().getHostAddress() +":"+socket.getPort()+" : client successfully connected.");
+	    		
+	    		Clients clients = new Clients(in, socket); //also, add this client to the client array
+	    		new Thread(clients).start();
+	            clientList.add(clients);
+	            } 
+	    		catch (IOException e) {
+	                e.printStackTrace();
+	            }
+	        }
+	    } 
+	    catch (IOException e1) {
+	    }
+
+	}
+
+	public void stopChat(){ //is stopped set to true, therefore server is stopped
+		isStopped = true;
+        for(Clients clients : clientList){
+        	clients.stop();
+	        }
+        Thread.currentThread().interrupt();
+    }
+
+}
+
+}
+
 
 
 //destination class for handling connections

@@ -9,7 +9,9 @@ import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Scanner;
+import java.util.TreeMap;
 
 
 public class Chat {
@@ -28,7 +30,9 @@ public class Chat {
 	        }
 	    }
 	private int myPort;
+	private Map<Integer, Destination> destinationsHosts = new TreeMap<>();
 	private InetAddress myIP;
+	private int clientCounter = 1;
 	//
 	
 	//basic methods
@@ -62,9 +66,37 @@ public class Chat {
         System.out.println("The chat listening on port: " + port);
     }
 
-    private static void connect() {
-
-    }
+	private static void connect(String[] commandArg) {
+		if(commandArg != null && commandArg.length == 3){ //inputing ip and port manually...
+	        try {
+	            /*note: array commandArgs[0] is our initial port*/
+	        	InetAddress remoteAddress = InetAddress.getByName(commandArg[1]);
+	            int remotePort = Integer.parseInt(commandArg[2]);
+				System.out.println("Connecting to " + remoteAddress + " on port: " +remotePort);
+				Destination destinationHost = new Destination(remoteAddress,remotePort);
+				
+				if(destinationHost.initConnections()){ //if connection successful....
+					/*client counter for list. first connnection assigned #1, second connection #2...etc
+					 */
+					destinationsHosts.put(clientCounter, destinationHost);
+					System.out.println("Connected successfully, client id: " + clientCounter++);
+				}
+				else {
+					System.out.println("Unable to establish connection, try again");
+				}
+	        }
+	        catch(NumberFormatException ne) {
+	        	System.out.println("Invalid Remote Host Port, unable to connect");
+	        }
+	        catch (UnknownHostException e) {
+	        	System.out.println("Invalid Remote Host Address, unable to connect");
+	        }
+		}
+		else {
+			//trying to connect  with no/wrong port
+			System.out.println("Invalid command format , Kindly follow : connect <destination> <port no>");
+		}
+	}
 
     private static void list() {
     }
@@ -207,15 +239,14 @@ private class Server implements Runnable{
 //destination class for handling connections
 class Destination{
 
-    private InetAddress remoteIP;
-    private int remotePort;
-    private Socket connection;
-    private PrintWriter outgoing;
-    private boolean isConnected;
-    //creating destination object with an IP and a port...
-    public Destination(InetAddress remoteIP, int remotePort) {
-
-        this.remoteIP = remoteIP;
+	private InetAddress remoteIP;
+	private int remotePort;
+	private Socket connection;
+	private PrintWriter outgoing;
+	private boolean isConnected;
+	//creating destination object with an IP and a port...
+	public Destination(InetAddress remoteIP, int remotePort) {
+		this.remoteIP = remoteIP;
         this.remotePort = remotePort;
     }
 
@@ -226,8 +257,8 @@ class Destination{
             //saving the message we want to send to OUT..
             this.outgoing = new PrintWriter(connection.getOutputStream(), true);
             isConnected = true; //if connection works then return TRUE
-        } catch (IOException e) {
-
+        } 
+        catch (IOException e) {
         }
         return isConnected;
     }
@@ -236,7 +267,7 @@ class Destination{
         return remoteIP;
     }
     public void setRemoteHost(InetAddress remoteHost) {
-        this.remoteIP = remoteHost;
+    	this.remoteIP = remoteHost;
     }
     public int getRemotePort() {
         return remotePort;
@@ -253,17 +284,17 @@ class Destination{
     }
   //close the connection by doing this stuff...
     public boolean closeConnection(){
-
-        if(outgoing != null)
+    	if(outgoing != null)
             outgoing.close();
         if(connection != null){
             try {
                 connection.close();
-            } catch (IOException e) {
+            } 
+            catch (IOException e) {
             }
         }
         isConnected = false;
-				return isConnected;
+        return isConnected;
     }
     @Override
     public String toString() {

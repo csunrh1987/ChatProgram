@@ -14,34 +14,40 @@ import java.util.Scanner;
 import java.util.TreeMap;
 
 
+
 public class Chat {
-	 public static void main(String[] arg){
+	public static void main(String[] arg){
 	        //using args as an input to program
 		 	if(arg != null && arg.length > 0){ //if args is something....
 	            try{
 	                int listener = Integer.parseInt(arg[0]);
 	                Chat chatProgram = new Chat(listener); //create a new Chat instance with given port
 	                chatProgram.startChat(); //start the chat program
-	            }catch(NumberFormatException e){
+	            }
+	            catch(NumberFormatException e){
 	                System.out.println("Not given a port number.");
 	            }
-	        }else{
+	        }
+		 	else{
 	            System.out.println("Args are wrong..'");
 	        }
 	    }
 	private int myPort;
-	private Map<Integer, Destination> destinationsHosts = new TreeMap<>();
 	private InetAddress myIP;
 	private int clientCounter = 1;
+	private Server msgReceiver; 
+	private Map<Integer, Destination> destinationsHosts = new TreeMap<>();
 	//
 	
-	//basic methods
+	//required methods
 	private Chat(int myPort) {
 		this.myPort = myPort;
 	}
+	
 	private String getmyIp() {
 		return myIP.getHostAddress();
 	}
+	
 	private int getmyPort() {
 		return myPort;
 	}
@@ -57,16 +63,49 @@ public class Chat {
         System.out.println("exit: Close all connections and terminate the chat");
     }
 
-    public static void myIP() throws UnknownHostException {
+    /*public static void getIP() throws UnknownHostException {
         String ip = InetAddress.getLocalHost().getHostAddress();
         System.out.println("The IP address is: " + ip);
     }
 
     public static void myPort() {
         System.out.println("The chat listening on port: " + port);
-    }
+    }*/
 
-	private static void connect(String[] commandArg) {
+	private void sendMessage(String[] commandArg) {
+		if(commandArg.length > 2){ //must be more than 2 commands in sendMessage..send destination message
+	        try{
+	            int id = Integer.parseInt(commandArg[1]);
+	            Destination destinationHost = destinationsHosts.get(id); //get ip and port of destination..
+	            System.out.println("id===="+destinationsHosts.get(id)); //print it
+	            if(destinationHost != null){ //destination host must be something to send msg...
+	            	StringBuilder message = new StringBuilder();
+	            	
+	            	//note commandArg[0] is our initial port, commandArg[1] is "send" in this case
+	            	for(int i = 2 ; i < commandArg.length ; i++){ //have to go through commandArg array 0 and 1
+	            		message.append(commandArg[i]); //then just add message at the end
+	            		message.append(" ");
+	            	}
+	            	
+	            	destinationHost.sendMessage(message.toString());
+	            	System.out.println("Mesage send successfully");
+	            }//end if
+	            else
+	            	System.out.println("Connect failed or does not exist. Check parameters.");
+	            	
+	        }//end try
+	
+	        catch(NumberFormatException ne){
+	        	System.out.println("Connection id does not exist. Type 'list' to check for valid id");
+	        }
+		}//end if >2 commands..
+		else{
+			System.out.println("Wrong format. Example send 1 hello");
+		}
+	
+	}
+
+    private void connect(String[] commandArg) {
 		if(commandArg != null && commandArg.length == 3){ //inputing ip and port manually...
 	        try {
 	            /*note: array commandArgs[0] is our initial port*/
@@ -98,94 +137,183 @@ public class Chat {
 		}
 	}
 
-    private static void list() {
+    private void listDestinations() {
+	
+	System.out.println("Id:\tIP Address\tPort");
+	if(destinationsHosts.isEmpty()){
+		System.out.println("Not connected to anyone");
+	}
+	else{
+		//using map, where an id # associated with ip and port....
+		for(Integer id : destinationsHosts.keySet()){
+			Destination destinationHost = destinationsHosts.get(id);
+	        System.out.println(id+"\t"+destinationHost.toString());
+	    }
+	}
+	System.out.println();
     }
 
-    private static void terminate() {
-    }
+	private void terminate(String[] commandArg) {
+		if(commandArg != null){
+			System.out.println("Terminating connection #: " + commandArg[1]);
+			try {
+				int id = Integer.parseInt(commandArg[1]);
+				//checking if the desination map even contains the given id
+				if(destinationsHosts.containsKey(id) == false) {
+					System.out.println("Invalid connection ID, unable to terminate, try list");
+					return;
+				}
+	
+				Destination destinationHost = destinationsHosts.get(id);
+				boolean closed = !destinationHost.closeConnection();
+				if(closed){
+					System.out.println("ConnectionID: "+ id + " was terminated, but i'll be back!");
+					destinationsHosts.remove(id);
+				}
+	
+			}//end try
+			catch(NumberFormatException e){
+				System.out.println("Must provide connection number");
+						}
+		}//end if
+		else {
+			System.out.println("Wrong format. Example terminate 1");
+		}	
+	}
 
-    private static void send() {
-    }
 
-    private static void exit() {
+    private void exit() {
         System.out.println("Exiting chat");
         System.exit(0);
     }
     
-    private void startChat() {
-    	//begin program by prompting for commands...
-    	Scanner sc = new Scanner(System.in);
-    	System.out.print("Enter command..Type help for list of commands");
-    	String str = sc.nextLine();
-            while (str != null) {
-                switch (str) {
-                    case "help" -> help();
-                    case "myip" -> myIP();
-                    case "myport" -> myPort();
-                    case "connect" -> connect();
-                    case "list" -> list();
-                    case "terminate" -> terminate();
-                    case "send" -> send();
-                    case "exit" -> exit();
-                    default -> System.out.println("Invalid user command");
-                }
-            }
+	private void startChat() {
+	//begin program by prompting for commands...
+	Scanner scanner = new Scanner(System.in);
+	try{
+		 myIP = InetAddress.getLocalHost();
+	     msgReceiver = new Server();
+	     new Thread(msgReceiver).start();
+	     while(true){
+	     System.out.print("Enter the command :");
+	     String command = scanner.nextLine();
+	     //if there is something after args..
+		     if(command != null && command.trim().length() > 0){
+		    	 command = command.trim();
+								
+		    	 if(command.equalsIgnoreCase("help") || command.equalsIgnoreCase("/h") || command.equalsIgnoreCase("-h")){
+		    		 help();
+		    	 }
+		    	 else if(command.equalsIgnoreCase("myip")){
+		    		 System.out.println(getmyIp());
+		    	 }
+		    	 else if(command.equalsIgnoreCase("myport")){
+		    		 System.out.println(getmyPort());
+		    	 }
+		    	 else if(command.startsWith("connect")){
+		    		 String[] commandArg = command.split("\\s+");
+		    		 connect(commandArg);
+		    	 }
+		    	 else if(command.equalsIgnoreCase("list")){
+		    		 listDestinations();
+		    	 }
+		    	 else if(command.startsWith("terminate")){
+		    		 String[] args = command.split("\\s+");
+		    		 terminate(args);
+		    	 }
+		    	 else if(command.startsWith("send")){
+		    		 String[] commandArg = command.split("\\s+");
+		    		 sendMessage(commandArg);
+		    	 }
+		    	 else if(command.startsWith("exit")){
+		    		 System.out.println("Closing sockets");
+		    		 System.out.println("Chat program closing");
+		    		 closeAll();
+		    		 System.exit(0);
+		    	 }
+		    	 else{
+		    		 System.out.println("Invalid parameter. See readme");
+		    		 System.out.println();
+		    	 }
+		     } //end if args not empty
+     	
+		    else{
+		    	System.out.println("Invalid parameter. See readme");
+		    	System.out.println();
+	    	}
+	    } //end while loop
+	} //end try
+	catch (UnknownHostException e) {
+	    e.printStackTrace();
+	}
+	
+	finally{
+	    if(scanner != null)
+	        scanner.close();
+	    closeAll();
+	}
+}//end start chat
+
+    private void closeAll(){
+        for(Integer id : destinationsHosts.keySet()){
+            Destination destinationHost = destinationsHosts.get(id);
+            destinationHost.closeConnection();
+        }
+        destinationsHosts.clear();
+        msgReceiver.stopChat();
     }
 
 private class Clients implements Runnable{
 
-	private BufferedReader input = null;
-	private Socket clientSocket = null;
-	private boolean checkStop = false;
-	//client class constructed with input from reader and IP
-	private Clients(BufferedReader input,Socket ipAddress) {
-	    this.input = input;
-	    this.clientSocket = ipAddress;
-	}
-	
-	@Override
-	public void run() {
-		while(!clientSocket.isClosed() && !this.checkStop)
-	    {
-			String st;
-	        try {
-	        	st = input.readLine(); //read input from terminal...
-	        	if(st == null){
-					stop();	//if there is no input, then stop
-					System.out.println("Connection was terminated by: " +clientSocket.getInetAddress().getHostAddress() +":"+clientSocket.getPort()+". ");
-					return;
-							 }
-	
-	        	System.out.println("Message from " +clientSocket.getInetAddress().getHostAddress() +":"+clientSocket.getPort()+" : "+st);
-	        	} 
-	        catch (IOException e) {
-	        	e.printStackTrace();
-	        	}
-	    }
-	}
-	//stopping a client instance
-	public void stop(){
-	
-	    if(input != null)
-	        try {
-	            input.close();
-	        } catch (IOException e) {
-	        }
-	
-	    if(clientSocket != null)
-	        try {
-	            clientSocket.close();
-	        } catch (IOException e) {
-	        }
-	    checkStop = true;
-	    Thread.currentThread().interrupt();
-	}
-
+private BufferedReader input = null;
+private Socket clientSocket = null;
+private boolean checkStop = false;
+//client class constructed with input from reader and IP
+private Clients(BufferedReader input,Socket ipAddress) {
+    this.input = input;
+    this.clientSocket = ipAddress;
 }
 
+@Override
+public void run() {
+	while(!clientSocket.isClosed() && !this.checkStop)
+    {
+		String st;
+        try {
+        	st = input.readLine(); //read input from terminal...
+        	if(st == null){
+				stop();	//if there is no input, then stop
+				System.out.println("Connection was terminated by: " +clientSocket.getInetAddress().getHostAddress() +":"+clientSocket.getPort()+". ");
+				return;
+						 }
 
-            
-            
+        	System.out.println("Message from " +clientSocket.getInetAddress().getHostAddress() +":"+clientSocket.getPort()+" : "+st);
+        	} 
+        catch (IOException e) {
+        	e.printStackTrace();
+        	}
+    }
+}
+//stopping a client instance
+public void stop(){
+
+    if(input != null)
+        try {
+            input.close();
+        } catch (IOException e) {
+        }
+
+    if(clientSocket != null)
+        try {
+            clientSocket.close();
+        } catch (IOException e) {
+        }
+    checkStop = true;
+    Thread.currentThread().interrupt();
+}
+
+}
+                       
 private class Server implements Runnable{
 
 	BufferedReader in = null;
